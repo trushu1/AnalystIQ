@@ -11,20 +11,21 @@ class CoordinatorAgent:
         self.visualizer = VisualizationAgent()
         self.insight_agent = InsightGenerationAgent()
 
+        # RAG components are initialized only when requested.
+        self.retrieval_agent = None
+        self.rag_pipeline = None
+
     def analyze(self, dataframe):
         """
-        Coordinate all agents to analyze a dataset,
-        generate visualizations, and produce AI insights.
+        Coordinate existing dataset analysis and visualization agents.
         """
 
         if dataframe is None or dataframe.empty:
             raise ValueError("The uploaded dataset is empty.")
 
-        # Step 1: Analyze the dataset
         print("Coordinator: Starting data analysis...")
         analysis_report = self.analyst.analyze_dataset(dataframe)
 
-        # Step 2: Generate visualizations
         print("Coordinator: Generating visualizations...")
 
         charts = {}
@@ -37,7 +38,6 @@ class CoordinatorAgent:
             include=["object", "category", "string", "bool"]
         ).columns.tolist()
 
-        # Bar chart: first categorical column vs first numeric column
         if categorical_columns and numeric_columns:
             charts["bar_chart"] = self.visualizer.generate_bar_chart(
                 dataframe,
@@ -45,14 +45,12 @@ class CoordinatorAgent:
                 numeric_columns[0]
             )
 
-        # Pie chart: first categorical column
         if categorical_columns:
             charts["pie_chart"] = self.visualizer.generate_pie_chart(
                 dataframe,
                 categorical_columns[0]
             )
 
-        # Scatter chart: first two numeric columns
         if len(numeric_columns) >= 2:
             charts["scatter_chart"] = self.visualizer.generate_scatter_chart(
                 dataframe,
@@ -60,20 +58,16 @@ class CoordinatorAgent:
                 numeric_columns[1]
             )
 
-        # Line chart: first two numeric columns
-        if len(numeric_columns) >= 2:
             charts["line_chart"] = self.visualizer.generate_line_chart(
                 dataframe,
                 numeric_columns[0],
                 numeric_columns[1]
             )
 
-        # Step 3: Generate AI insights
         print("Coordinator: Generating AI insights...")
 
         insights = self.insight_agent.generate_insights(analysis_report)
 
-        # Step 4: Collect all results
         print("Coordinator: Analysis completed!")
 
         return {
@@ -81,3 +75,50 @@ class CoordinatorAgent:
             "charts": charts,
             "insights": insights
         }
+
+    def build_retrieval_index(
+        self,
+        dataframe,
+        embedding_service=None,
+        groq_client=None
+    ):
+        """
+        Build a semantic search index for the uploaded dataset.
+        """
+
+        if dataframe is None or dataframe.empty:
+            raise ValueError("Cannot index an empty dataset.")
+
+        from agents.retrieval_agent import RetrievalAgent
+        from utils.rag_pipeline import RAGPipeline
+
+        retrieval_agent = RetrievalAgent(
+            embedding_service=embedding_service
+        )
+
+        index_result = retrieval_agent.build_index(dataframe)
+
+        rag_pipeline = RAGPipeline(
+            retrieval_agent=retrieval_agent,
+            client=groq_client
+        )
+
+        self.retrieval_agent = retrieval_agent
+        self.rag_pipeline = rag_pipeline
+
+        return index_result
+
+    def answer_semantic_question(self, question, top_k=5):
+        """
+        Answer a natural-language question using RAG.
+        """
+
+        if self.rag_pipeline is None:
+            raise RuntimeError(
+                "Retrieval index not initialized. Build the index first."
+            )
+
+        return self.rag_pipeline.answer_question(
+            question,
+            top_k=top_k
+        )
