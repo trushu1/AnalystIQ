@@ -29,7 +29,7 @@ class DataAnalystAgent:
 
         # 6. Statistical summary
         report["statistical_summary"] = dataframe.describe(
-            include="all"
-        ).fillna("").to_dict()
+        include="all"
+        ).astype(object).fillna("").to_dict()
 
         return report

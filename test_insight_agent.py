@@ -1,22 +1,48 @@
 
-from utils.data_processing import load_dataset
-from agents.analyst_agent import DataAnalystAgent
+from unittest.mock import MagicMock
+
 from agents.insight_agent import InsightGenerationAgent
 
-# Load sample dataset
-data = load_dataset("sample.csv")
 
-# Generate statistical analysis
-analyst = DataAnalystAgent()
-analysis_report = analyst.analyze_dataset(data)
+def test_generate_insights_returns_ai_response():
+    agent = InsightGenerationAgent()
 
-# Initialize AI Insight Agent
-insight_agent = InsightGenerationAgent()
+    # Mock the Groq API response
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = (
+        "Key Findings: Sales are increasing."
+    )
 
-# Generate AI insights
-print("\nGenerating AI insights... Please wait.\n")
+    agent.client.chat.completions.create = MagicMock(
+        return_value=mock_response
+    )
 
-insights = insight_agent.generate_insights(analysis_report)
+    analysis_report = {
+        "total_rows": 3,
+        "total_columns": 2,
+        "column_names": ["Product", "Sales"]
+    }
 
-print("===== ANALYSTIQ AI INSIGHTS =====")
-print(insights)
+    result = agent.generate_insights(analysis_report)
+
+    assert isinstance(result, str)
+    assert "Key Findings" in result
+    agent.client.chat.completions.create.assert_called_once()
+
+
+def test_generate_insights_handles_empty_report():
+    agent = InsightGenerationAgent()
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = (
+        "No meaningful insights available."
+    )
+
+    agent.client.chat.completions.create = MagicMock(
+        return_value=mock_response
+    )
+
+    result = agent.generate_insights({})
+
+    assert isinstance(result, str)
+    assert len(result) > 0

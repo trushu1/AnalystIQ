@@ -1,3 +1,4 @@
+
 import os
 import json
 import pandas as pd
@@ -12,7 +13,6 @@ load_dotenv()
 class NaturalLanguageQueryAgent:
 
     def __init__(self):
-
         api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
@@ -22,6 +22,10 @@ class NaturalLanguageQueryAgent:
 
         self.client = Groq(api_key=api_key)
         self.model = "openai/gpt-oss-120b"
+
+    # --------------------------------
+    # STEP 1: INTERPRET QUESTION
+    # --------------------------------
 
     def interpret_question(self, question, dataframe):
 
@@ -84,9 +88,7 @@ class NaturalLanguageQueryAgent:
             temperature=0
         )
 
-        result = response.choices[0].message.content
-
-        return json.loads(result)
+        return json.loads(response.choices[0].message.content)
 
     # --------------------------------
     # STEP 2: VALIDATE AND EXECUTE
@@ -106,17 +108,14 @@ class NaturalLanguageQueryAgent:
             raise ValueError("Unsupported operation requested.")
 
         def check_column(column):
-
             if not isinstance(column, str) or column not in dataframe.columns:
                 raise ValueError(f"Invalid column: {column}")
 
-        # Count rows
         if operation == "count_rows":
 
             filter_column = plan.get("filter_column")
 
             if filter_column:
-
                 check_column(filter_column)
 
                 filter_value = plan.get("filter_value")
@@ -125,11 +124,9 @@ class NaturalLanguageQueryAgent:
                     (dataframe[filter_column].astype(str) ==
                      str(filter_value)).sum()
                 )
-
             else:
                 result = len(dataframe)
 
-        # Numeric calculations
         elif operation in ["mean", "sum", "min", "max", "median"]:
 
             column = plan.get("column")
@@ -139,10 +136,8 @@ class NaturalLanguageQueryAgent:
                 raise ValueError("This operation requires a numeric column.")
 
             value = getattr(dataframe[column], operation)()
-
             result = float(value) if pd.notna(value) else None
 
-        # Category counts
         elif operation == "value_counts":
 
             column = plan.get("column")
@@ -150,7 +145,6 @@ class NaturalLanguageQueryAgent:
 
             result = dataframe[column].value_counts().to_dict()
 
-        # Group and aggregate
         elif operation == "groupby_aggregate":
 
             group_column = plan.get("group_column")
@@ -173,7 +167,6 @@ class NaturalLanguageQueryAgent:
                 .to_dict()
             )
 
-        # Top N records
         elif operation == "top_n":
 
             column = plan.get("column")
@@ -203,31 +196,33 @@ class NaturalLanguageQueryAgent:
         return result
 
     # --------------------------------
-    # STEP 3: ANSWER THE USER
+    # STEP 3: EXPLAIN RESULT
     # --------------------------------
 
+    def explain_result(self, question, result):
 
-def explain_result(self, question, result):
+        if isinstance(result, pd.DataFrame):
 
-    if isinstance(result, pd.DataFrame):
-        result_data = result.to_dict(orient="records")
+            result_data = result.to_dict(orient="records")
 
-        for row in result_data:
-            for key, value in row.items():
-                if isinstance(value, float):
-                  row[key] = round(value, 2)
+            for row in result_data:
+                for key, value in row.items():
+                    if isinstance(value, float):
+                        row[key] = round(value, 2)
 
-    elif isinstance(result, dict):
-       result_data = {
-          key: round(value, 2) if isinstance(value, float) else value
-          for key, value in result.items()
-    }
+        elif isinstance(result, dict):
 
-    elif isinstance(result, float):
-        result_data = round(result, 2)
+            result_data = {
+                key: round(value, 2) if isinstance(value, float) else value
+                for key, value in result.items()
+            }
 
-    else:
-        result_data = result
+        elif isinstance(result, float):
+
+            result_data = round(result, 2)
+
+        else:
+            result_data = result
 
         prompt = f"""
         You are a professional data analyst.
@@ -268,13 +263,14 @@ def explain_result(self, question, result):
 
         return response.choices[0].message.content
 
+    # --------------------------------
+    # STEP 4: COMPLETE QUERY WORKFLOW
+    # --------------------------------
 
     def answer_question(self, question, dataframe):
 
         plan = self.interpret_question(question, dataframe)
-
         result = self.execute_plan(plan, dataframe)
-
         explanation = self.explain_result(question, result)
 
         return {

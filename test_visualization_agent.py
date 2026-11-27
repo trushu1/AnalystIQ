@@ -1,29 +1,56 @@
 
-from utils.data_processing import load_dataset
+import pandas as pd
+import plotly.graph_objects as go
+
 from agents.visualization_agent import VisualizationAgent
 
-# Load sample dataset
-data = load_dataset("sample.csv")
 
-# Create Visualization Agent
-agent = VisualizationAgent()
+def test_generate_bar_chart():
+    df = pd.DataFrame({
+        "Department": ["IT", "HR", "Sales"],
+        "Salary": [50000, 40000, 60000]
+    })
 
-# Generate charts
-bar_chart = agent.generate_bar_chart(data, "Name", "Salary")
-line_chart = agent.generate_line_chart(data, "Age", "Salary")
-pie_chart = agent.generate_pie_chart(data, "Department")
-scatter_chart = agent.generate_scatter_chart(data, "Age", "Salary")
+    agent = VisualizationAgent()
+    chart = agent.generate_bar_chart(df, "Department", "Salary")
 
-# Verify chart generation
-print("Bar chart:", bar_chart is not None)
-print("Line chart:", line_chart is not None)
-print("Pie chart:", pie_chart is not None)
-print("Scatter chart:", scatter_chart is not None)
+    assert isinstance(chart, go.Figure)
+    assert len(chart.data) > 0
 
-# Save charts as HTML files
-bar_chart.write_html("bar_chart.html")
-line_chart.write_html("line_chart.html")
-pie_chart.write_html("pie_chart.html")
-scatter_chart.write_html("scatter_chart.html")
 
-print("\nAll four charts generated successfully!")
+def test_generate_line_chart():
+    df = pd.DataFrame({
+        "Age": [22, 25, 30],
+        "Salary": [30000, 45000, 60000]
+    })
+
+    agent = VisualizationAgent()
+    chart = agent.generate_line_chart(df, "Age", "Salary")
+
+    assert isinstance(chart, go.Figure)
+    assert len(chart.data) > 0
+
+
+def test_generate_pie_chart():
+    df = pd.DataFrame({
+        "Department": ["IT", "HR", "IT", "Sales"]
+    })
+
+    agent = VisualizationAgent()
+    chart = agent.generate_pie_chart(df, "Department")
+
+    assert isinstance(chart, go.Figure)
+    assert len(chart.data) > 0
+
+
+def test_generate_scatter_chart():
+    df = pd.DataFrame({
+        "Age": [22, 25, 30],
+        "Salary": [30000, 45000, 60000]
+    })
+
+    agent = VisualizationAgent()
+    chart = agent.generate_scatter_chart(df, "Age", "Salary")
+
+    assert isinstance(chart, go.Figure)
+    assert len(chart.data) > 0
